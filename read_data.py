@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import struct
 from signal_class import Signal
+from spectrum_class import Spectrum
 
 
 def load_spectrum_raw(file_path, header_size = 328, n_points = 2048):
@@ -39,3 +40,15 @@ def load_spectrum_excel(file_path):
         spectra.append(spec)
     return spectra
 
+def load_data_from_excel_with_defect(file_path):
+    spectra = []
+    params_data = pd.read_excel(file_path, header=None)
+
+    wavelengths = params_data.iloc[0, 0:2048].values
+    intensities = params_data.iloc[1:, 0:2048].values
+    defects = params_data.iloc[1:, 2048:].values
+
+    for i in range(intensities.shape[0]):
+        spec = Spectrum(i, wavelengths, intensities[i], h_u = defects[i,0], h_g = defects[i,1], h_e = defects[i,2], h_p = defects[i,3], h_s = defects[i,4], h_m = defects[i,5], h_i = defects[i,6])
+        spectra.append(spec)
+    return spectra
