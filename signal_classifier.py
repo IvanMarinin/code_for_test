@@ -53,7 +53,7 @@ spectrum_names2 = [
 
 
 
-def preparate_dataset(spectra, noises):
+def prepare_dataset(spectra, noises):
     X = []
     y = []
     for spec in spectra:
@@ -68,7 +68,7 @@ def preparate_dataset(spectra, noises):
 spectra, noises = classify_signals(folder_path, spectrum_names)
 
 # Первая часть — обучение
-X, y = preparate_dataset(spectra, noises)
+X, y = prepare_dataset(spectra, noises)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
 scaler = StandardScaler()
@@ -85,7 +85,7 @@ print(classification_report(y_test, y_pred))
 
 # Вторая часть — проверка на внешней (новой) выборке
 spectra, noises = classify_signals(folder_path2, spectrum_names2)
-X_ext, y_ext = preparate_dataset(spectra, noises)
+X_ext, y_ext = prepare_dataset(spectra, noises)
 
 X_ext_scaled = scaler.transform(X_ext)
 y_pred_ext = model.predict(X_ext_scaled)
