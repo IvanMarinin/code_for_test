@@ -1,5 +1,6 @@
-import numpy as np
-from scipy.stats import skew, kurtosis, entropy, gaussian_kde
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from signal_class import Signal
 
 
@@ -7,6 +8,10 @@ class Spectrum(Signal):
     def __init__(self, filename, wavelengths, intensities,
                  h_u=None, h_g=None, h_e=None, h_p=None,
                  h_s=None, h_m=None, h_i=None):
+        """
+        Spectrum extends Signal by adding defect-related parameters.
+        Each spectrum has optional defect parameters h_u, h_g, h_e, h_p, h_s, h_m, h_i.
+        """
         super().__init__(filename, wavelengths, intensities)
         self.h_u = h_u
         self.h_g = h_g
@@ -17,75 +22,11 @@ class Spectrum(Signal):
         self.h_i = h_i
 
     @property
-    def mean(self):
-        return np.mean(self.intensities)
-
-    @property
-    def std(self):
-        return np.std(self.intensities)
-
-    @property
-    def Modality(self):
-        return 0  # Надо дописать нормально
-
-    @property
-    def skewness(self):
-        return skew(self.intensities)
-
-    @property
-    def kurtosis(self):
-        return kurtosis(self.intensities)
-
-    @property
-    def iqr(self):
-        return np.percentile(self.intensities, 75) - np.percentile(self.intensities, 25)
-
-    @property
-    def snr(self):
-        numerator = np.sqrt(np.sum(self.intensities ** 2) / len(self.intensities))
-        denominator = np.sqrt(np.sum((self.intensities - self.mean) ** 2) / (len(self.intensities) - 1))
-
-        if denominator == 0:
-            raise ValueError("Denominator equals 0")
-        return numerator / denominator
-
-    @property
-    def max_i(self):
-        return np.max(self.intensities)
-
-    @property
-    def sum_i(self):
-        return np.sum(self.intensities)
-
-    @property
-    def entropy(self):
-        hist, _ = np.histogram(self.intensities, bins=512, density=True)
-        hist = hist[hist > 0]
-        return entropy(hist)  # Уточнить формулу
-
-    @property
-    def freq_magnitude(self):
-        freq_spectrum = np.fft.fft(self.intensities)
-        return np.abs(freq_spectrum).max()
-
-    @property
-    def get_features_list(self):
-        return [
-            self.mean,
-            self.std,
-            self.Modality,
-            self.skewness,
-            self.kurtosis,
-            self.iqr,
-            self.snr,
-            self.max_i,
-            self.sum_i,
-            self.entropy,
-            self.freq_magnitude
-        ]
-
-    @property
     def get_defect_params_list(self):
+        """
+        Returns defect parameters as a list in a fixed order.
+        Useful for building DataFrames or correlation analysis.
+        """
         return [
             self.h_i,
             self.h_u,
@@ -95,3 +36,45 @@ class Spectrum(Signal):
             self.h_s,
             self.h_m
         ]
+
+    @classmethod
+    def correlation(cls, spectra, draw=False):
+        """
+        Computes Pearson correlation between spectrum features and defect parameters.
+
+        Parameters:
+        - spectra: list of Spectrum objects
+        - draw: bool, if True shows a heatmap of correlations
+
+        Returns:
+        - DataFrame of correlations (features x defect parameters)
+        """
+        # Collect feature values and defect parameters for each spectrum
+        features_data = [s.get_features_list for s in spectra]
+        params_data = [s.get_defect_params_list for s in spectra]
+
+        # Define column names
+        feature_columns = ["mean", "std", "modality", "skewness", "kurtosis",
+                           "iqr", "snr", "max_i", "sum_i", "entropy", "freq_magnitude"]
+        param_columns = ["h_i", "h_u", "h_g", "h_e", "h_p", "h_s", "h_m"]
+
+        # Create DataFrames
+        df_features = pd.DataFrame(features_data, columns=feature_columns)
+        df_params = pd.DataFrame(params_data, columns=param_columns)
+        df = pd.concat([df_features, df_params], axis=1)
+
+        # Compute Pearson correlation
+        corr_matrix = df.corr(method='pearson')
+
+        # Optional heatmap visualization
+        if draw:
+            corr_subset = corr_matrix.loc[feature_columns, param_columns]
+            plt.figure(figsize=(11, 7))
+            sns.heatmap(corr_subset, annot=True, cmap="coolwarm", center=0, linewidths=0.5)
+            plt.title("Correlation between spectrum features and defect parameters")
+            plt.xlabel("Defect parameters")
+            plt.ylabel("Spectrum features")
+            plt.show()
+
+        # Return only the correlation between features and defect parameters
+        return corr_matrix.loc[feature_columns, param_columns]
