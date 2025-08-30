@@ -102,9 +102,7 @@ class Signal:
         self.intensities = filtfilt(b, a, self.intensities)
 
     def modality(self, bandwidth=None, grid_points=2048, prominence=None, pad=0.05):
-        """
-        Calculates number of modes (peaks) in the intensity distribution using KDE.
-        """
+        """Calculates number of modes (peaks) in the intensity distribution using KDE."""
 
         x = self.intensities
         n = len(x)
@@ -197,27 +195,3 @@ class Signal:
             self.entropy,
             self.freq_magnitude
         ]
-
-    @classmethod
-    def average(cls, signal_list, normalize=True):
-        """
-        Creates an average signal from a list of Signal objects.
-        """
-        if not signal_list:
-            raise ValueError(f"{cls.__name__} list is empty")
-
-        wavelengths = signal_list[0].wavelengths
-
-        for sign in signal_list:
-            if not np.array_equal(sign.wavelengths, wavelengths):
-                raise ValueError("Wavelengths are not equal")
-
-        if normalize:
-            for sign in signal_list:
-                sign.normalize()
-
-        intensities_stack = np.array([sign.intensities for sign in signal_list])
-        mean_intensities = intensities_stack.mean(axis=0)
-        average_signal = cls(filename=f"Average {cls.__name__}", wavelengths=wavelengths, intensities=mean_intensities)
-
-        return average_signal
