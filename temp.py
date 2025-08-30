@@ -11,6 +11,6 @@ spectra3 = load_data_from_excel_with_defect(file_path3)
 analyser = SignalAnalyzer(spectra3)
 
 test = analyser.different_smoothing_parallel(31,4)
-best = analyser.find_best_rms()
+print(analyser.find_best_rms())
 analyser.apply_best_smoothing()
 best = analyser.correlation(True)

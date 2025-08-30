@@ -122,7 +122,7 @@ class SignalAnalyzer:
         self.apply_savgol(window_length, polyorder)
         corr_matrix = self.correlation(show=False)
         self.reset_all_signals()
-        rms = np.sqrt(np.mean(corr_matrix.to_numpy() ** 2))
+        rms = np.sqrt(np.mean(np.nan_to_num(corr_matrix.to_numpy()) ** 2))
 
         return {
             "window_length": window_length,
