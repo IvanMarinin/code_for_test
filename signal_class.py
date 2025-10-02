@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 import pywt
 from scipy.signal import savgol_filter, butter, filtfilt, find_peaks
 from scipy.stats import skew, kurtosis, entropy, gaussian_kde
-
+from pybaselines.whittaker import asls, airpls
+from pybaselines.morphological import mpls
+from pybaselines.polynomial import imodpoly
 
 class Signal:
     def __init__(self, filename, wavelengths, intensities, int_time=None, averages=None, smoothing=None):
@@ -195,3 +197,43 @@ class Signal:
             self.entropy,
             self.freq_magnitude
         ]
+
+    def flatten(self, method='mpls', **params):
+        """
+        Flatten spectrum by removing baseline using various methods.
+        Parameters:
+        - method: 'asls', 'airpls', 'mpls', 'imodpoly', 'combo'
+        - **params: parameters for the specific method
+        """
+        method = method.lower()
+
+        if method == 'asls':
+            # Aggressive baseline removal
+            baseline, _ = asls(self.intensities, lam=params.get('lam', 100),
+                               p=params.get('p', 0.001))
+
+        elif method == 'airpls':
+            # Adaptive method
+            baseline, _ = airpls(self.intensities, lam=params.get('lam', 1e3))
+
+        elif method == 'mpls':
+            # Morphological method
+            baseline, _ = mpls(self.intensities)
+
+        elif method == 'imodpoly':
+            # Polynomial method
+            baseline, _ = imodpoly(self.wavelengths, self.intensities,
+                                   poly_order=params.get('poly_order', 2),
+                                   max_iter=params.get('max_iter', 100))
+
+        elif method == 'combo':
+            # Two-step approach: aggressive + fine
+            baseline1, _ = asls(self.intensities, lam=100, p=0.001)
+            temp = self.intensities - baseline1
+            baseline2, _ = airpls(temp, lam=1e4)
+            baseline = baseline1 + baseline2
+
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        self.intensities = self.intensities - baseline

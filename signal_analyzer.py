@@ -1,9 +1,12 @@
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from signal_class import Signal
 from joblib import Parallel, delayed
+
+from spectrum_class import Spectrum
 
 
 class SignalAnalyzer:
@@ -108,6 +111,23 @@ class SignalAnalyzer:
             if normalize_after:
                 s.normalize()
 
+    def remove_baseline(self, normalize_before=True, normalize_after=True, method='mpls', **params):
+        """
+        Remove baseline from all spectra in the analyzer.
+
+        Parameters:
+        - normalize_before: bool, normalize before smoothing
+        - normalize_after: bool, normalize after smoothing
+        - method: baseline removal method ('asls', 'airpls', etc.)
+        - **params: parameters for the baseline method
+        """
+        for s in self.signals:
+            if normalize_before:
+                s.normalize()
+            s.flatten(method=method, **params)
+            if normalize_after:
+                s.normalize()
+
     def reset_all_signals(self):
         """Restore all signals to their original intensities."""
         for s in self.signals:
@@ -164,3 +184,64 @@ class SignalAnalyzer:
         w = self.best_correlation_matrix["window_length"]
         p = self.best_correlation_matrix["polyorder"]
         self.apply_savgol(w, p)
+
+    @classmethod
+    def merge_spectra(cls, spectra1, spectra2):
+        """
+        Merge two lists of spectra by concatenating their wavelengths and intensities.
+        Spectra must have matching parameters.
+        """
+        spectra = []
+        # Check if spectra lists have the same length
+        if len(spectra1) != len(spectra2):
+            raise ValueError(f"Cannot merge spectra lists of different lengths: {len(spectra1)} != {len(spectra2)}")
+
+        # Merge each corresponding pair of spectra
+        for i in range(len(spectra1)):
+            # List of spectral parameters to check for equality
+            attributes = ['h_u', 'h_g', 'h_e', 'h_p', 'h_s', 'h_m', 'h_i']
+            mismatches = []
+
+            # Check if all parameters match between the two spectra
+            for attr in attributes:
+                val1 = getattr(spectra1[i], attr)
+                val2 = getattr(spectra2[i], attr)
+                if math.isnan(val1) and math.isnan(val2):
+                    # Both are NaN - consider them equal
+                    continue
+                elif val1 != val2:
+                    mismatches.append(f"{attr}: {val1} != {val2}")
+
+            # If all parameters match, merge the spectra
+            if not mismatches:
+                # Concatenate wavelengths and intensities from both spectra
+                merged_wavelengths = np.concatenate([spectra1[i].wavelengths, spectra2[i].wavelengths])
+                merged_intensities = np.concatenate([spectra1[i].intensities, spectra2[i].intensities])
+
+                # Get sorting indices based on wavelengths
+                sort_indices = np.argsort(merged_wavelengths)
+
+                # Apply the same sorting to both arrays to maintain wavelength-intensity correspondence
+                sorted_wavelengths = merged_wavelengths[sort_indices]
+                sorted_intensities = merged_intensities[sort_indices]
+                merged_spectrum = Spectrum(
+                    filename=spectra1[i].filename,
+                    wavelengths=sorted_wavelengths,
+                    intensities=sorted_intensities,
+                    h_u=spectra1[i].h_u,
+                    h_g=spectra1[i].h_g,
+                    h_e=spectra1[i].h_e,
+                    h_p=spectra1[i].h_p,
+                    h_s=spectra1[i].h_s,
+                    h_m=spectra1[i].h_m,
+                    h_i=spectra1[i].h_i
+                )
+                spectra.append(merged_spectrum)
+            else:
+                # Raise detailed error if parameters don't match
+                raise ValueError(
+                    f'Merging parts of different spectra is impossible for spectrum {i}. '
+                    f'Mismatches: {", ".join(mismatches)}'
+                )
+
+        return spectra
